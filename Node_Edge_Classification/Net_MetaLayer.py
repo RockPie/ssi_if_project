@@ -101,6 +101,10 @@ class SJN_Meta(torch.nn.Module):
             EdgeModel(edge_feature_size, node_feature_size, 256), 
             NodeModel(edge_feature_size, node_feature_size, 256), 
             GlobalModel())
+        self.metalayer4 = MetaLayer(
+            EdgeModel(edge_feature_size, node_feature_size, 512), 
+            NodeModel(edge_feature_size, node_feature_size, 512), 
+            GlobalModel())
 
         self.x_linear = torch.nn.Linear(16, 1)
 
@@ -117,6 +121,7 @@ class SJN_Meta(torch.nn.Module):
         x, edge_attr, u = self.metalayer1(x, edge_index, edge_attr, u, batch)
         x, edge_attr, u = self.metalayer2(x, edge_index, edge_attr, u, batch)
         x, edge_attr, u = self.metalayer3(x, edge_index, edge_attr, u, batch)
+        x, edge_attr, u = self.metalayer4(x, edge_index, edge_attr, u, batch)
 
         # row, col = edge_index
         # hybrid_feature = torch.cat([x[row], x[col], edge_attr], dim=1)

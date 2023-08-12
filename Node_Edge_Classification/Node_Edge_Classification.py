@@ -31,8 +31,7 @@ train_datapath = "./Node_Edge_Classification/data/if-graph-train.h5"
 
 voxel_data = ShowerVoxels(file_path = train_datapath)
 example_voxel_data = voxel_data[0]
-
-print('List of keys in a data element',example_voxel_data.keys(),'\n')
+print('List of keys in a data element',example_voxel_data.keys())
 
 print(colored('Loading training data from: ', 'green'), train_datapath)
 train_data = ShowerFeatures(file_path = train_datapath)
@@ -115,10 +114,11 @@ loss_node_ratio = 1 - loss_edge_ratio
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 model.train()
 
-loss_array = []
-test_acc_y = []
+loss_array_node = []
+loss_array_edge = []
+test_acc_node = []
 test_acc_edge = []
-epoch_num = 1
+epoch_num = 3
 
 print(colored('Training ...', 'cyan', attrs=['bold']))
 for epoch in range(epoch_num):
@@ -145,13 +145,14 @@ for epoch in range(epoch_num):
         loss = loss_node_ratio * loss_node + loss_edge_ratio * loss_edge
         loss.backward()
         optimizer.step()
-        loss_array.append(loss_edge.item())
+        loss_array_node.append(loss_node.item())
+        loss_array_edge.append(loss_edge.item())
         end_time = time.time()
         loss_2p3_str = str(loss_edge.item())[:5]
         time_2p2_str = str((end_time - start_time)*1000)[:4]
         print('[ Epoch: ', epoch, ' Edge Loss: ', loss_2p3_str, ' Time[ms]: ', time_2p2_str, 'batch:' , batch_cnt, '/', train_batch_num, ' ]',end='\r')
 
-    local_acc_y = []
+    local_acc_node = []
     local_acc_edge = []
     for batch in test_loader:
         pred_y, pred_edge_label = model(
@@ -169,29 +170,32 @@ for epoch in range(epoch_num):
         # accuracy is the number of correct predictions divided by the number of predictions
         acc_y = np.sum(pred_y == batch.y.reshape(len(batch.y), 1).numpy()) / len(batch.y)
         acc_edge = np.sum(pred_edge_label == batch.edge_label.reshape(len(batch.edge_label), 1).numpy()) / len(batch.edge_label)
-        test_acc_y.append(acc_y)
-        local_acc_y.append(acc_y)
-        test_acc_edge.append(acc_edge)
+        local_acc_node.append(acc_y)
         local_acc_edge.append(acc_edge)
-    print('\n-        ', epoch, ' Node accuracy: ', str(np.mean(local_acc_y))[:5], ' Edge accuracy: ', str(np.mean(local_acc_edge))[:5])
+    test_acc_edge.append(np.mean(local_acc_edge))
+    test_acc_node.append(np.mean(local_acc_node))
+    print('\n-        ', epoch, ' Node accuracy: ', str(np.mean(local_acc_node))[:5], ' Edge accuracy: ', str(np.mean(local_acc_edge))[:5])
 
-print('Overallest node accuracy: ', np.mean(test_acc_y))
+print('Overallest node accuracy: ', np.mean(test_acc_node))
 print('Overallest edge accuracy: ', np.mean(test_acc_edge))
         
 figure_train = plt.figure(figsize=(10, 5))
-plt.plot(loss_array)
+plt.plot(loss_array_node, label='Node loss', color='blue')
+plt.plot(loss_array_edge, label='Edge loss', color='red')
 plt.title('Training edge loss')
 plt.xlabel('Batch')
 plt.ylabel('Loss')
+plt.legend()
+plt.grid()
 plt.savefig('./Node_Edge_Classification/pics/train_loss.png')
 
 # test on test data
 figure_test = plt.figure(figsize=(10, 5))
-plt.plot(test_acc_y, label='Node accuracy')
+plt.plot(test_acc_node, label='Node accuracy')
 plt.plot(test_acc_edge, label='Edge accuracy')
 
 plt.title('Test accuracy')
-plt.xlabel('Batch')
+plt.xlabel('Epoch')
 plt.ylabel('Accuracy')
 plt.legend()
 plt.savefig('./Node_Edge_Classification/pics/test_acc.png')
