@@ -22,6 +22,9 @@ if __name__ == '__main__':
 
     # device = torch.device('mps')
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # set 10 cores for training
+    torch.set_num_threads(10)
+
 
     print(colored('Using device:', 'green'), device)
 
@@ -30,10 +33,10 @@ if __name__ == '__main__':
     _=torch.manual_seed(SEED)
 
     epoch_num   = 1
-    batch_size  = 128
+    batch_size  = 256
     enable_save = False
     # training_event_size = 110409
-    training_event_size = 2000
+    training_event_size = 1000
     test_event_size = 400
 
     train_datapath = "./Node_Edge_Classification/data/if-graph-train.h5"
@@ -42,30 +45,16 @@ if __name__ == '__main__':
     voxel_data_train = ShowerVoxels(file_path = train_datapath)
     voxel_data_test  = ShowerVoxels(file_path = test_datapath)
     example_voxel_data = voxel_data_train[0]
-    print("voxel data keys: ", example_voxel_data.keys())
-    print("voxel data size: ", len(voxel_data_train))
+    print("Voxel data keys: ", example_voxel_data.keys())
+    print("Voxel data size: ", len(voxel_data_train))
 
 
     # * --- Generate global features from voxel data --- *
+    print(colored('Generating training global features from voxel data ...', 'green'))
     train_u_features = Net_MetaLayer.extractGlobalFeatures(voxel_data_train, training_event_size, batch_size)
+    print(colored('Generating test global features from voxel data ...', 'green'))
     test_u_features = Net_MetaLayer.extractGlobalFeatures(voxel_data_test, test_event_size, batch_size)
-    # u_generated = []
-    # for i in range(0, training_event_size):
-    #     voxel_event = torch.cat(voxel_data[i]['voxels'], dim=0)
-    #     _voxel_num = len(voxel_event)
-    #     _voxel_info_num = len(voxel_event[0])
-    #     _voxel_x_min = torch.min(voxel_event[:, 0]).item()
-    #     _voxel_x_max = torch.max(voxel_event[:, 0]).item()
-    #     _voxel_y_min = torch.min(voxel_event[:, 1]).item()
-    #     _voxel_y_max = torch.max(voxel_event[:, 1]).item()
-    #     _voxel_z_min = torch.min(voxel_event[:, 2]).item()
-    #     _voxel_z_max = torch.max(voxel_event[:, 2]).item()
-    #     u_generated.append([_voxel_num, _voxel_x_min, _voxel_x_max, _voxel_y_min, _voxel_y_max, _voxel_z_min, _voxel_z_max])
-    # u_generated_tensor = torch.tensor(u_generated, dtype=torch.float)
-    # u_generated_tensor_sliced_by_batch = torch.split(u_generated_tensor, batch_size)
-    print("sliced size: ", len(train_u_features))
-    # print an example of event #5 in batch #4
-    print("example of event #5 in batch #4: ", train_u_features[4][5])
+
     # * ----------------------------------------------- *
 
     print(colored('Loading training data from: ', 'green'), train_datapath)
@@ -248,8 +237,6 @@ if __name__ == '__main__':
         epoch_time = np.round(epoch_time, 2)
         print('\n-        ', epoch, ' Node accuracy: ', str(np.mean(local_acc_node))[:5], ' Edge accuracy: ', str(np.mean(local_acc_edge))[:5], ' Time[sec]: ', str(epoch_time))
 
-    print('Overallest node accuracy: ', np.mean(test_acc_node))
-    print('Overallest edge accuracy: ', np.mean(test_acc_edge))
     local_time = time.localtime(time.time())
     # save model
     model_name = './Node_Edge_Classification/temp/model' + str(local_time.tm_year) + str(local_time.tm_mon) + str(local_time.tm_mday) + str(local_time.tm_hour) + str(local_time.tm_min) + str(local_time.tm_sec) + '.pt'
@@ -289,7 +276,7 @@ if __name__ == '__main__':
     ax2.plot(x_acc, test_acc_node, label='Node accuracy', color='#04B5BBEE', marker='o', linestyle='--')
     ax2.plot(x_acc, test_acc_edge, label='Edge accuracy', color='#DF0345EE', marker='o', linestyle='--')
     ax2.set_ylabel('Accuracy')
-    ax2.legend(loc='center right')
+    ax2.legend(loc='upper right')
     # set x axis range
     plt.xlim(0, len(loss_array_node))
 
@@ -329,6 +316,7 @@ if __name__ == '__main__':
     plt.ylabel('Count')
     plt.xlim(0, 1)
     plt.legend(loc='upper center')
+    plt.grid()
     if enable_save:
         plt.savefig('./Node_Edge_Classification/pics/node_hist' + str(local_time.tm_year) + str(local_time.tm_mon) + str(local_time.tm_mday) + str(local_time.tm_hour) + str(local_time.tm_min) + str(local_time.tm_sec) + '.png')
     else:
