@@ -29,18 +29,44 @@ if __name__ == '__main__':
     _=np.random.seed(SEED)
     _=torch.manual_seed(SEED)
 
-    epoch_num = 5
-    batch_size = 256
-    enable_save = True
+    epoch_num   = 1
+    batch_size  = 128
+    enable_save = False
     # training_event_size = 110409
-    training_event_size = 40000
-    test_event_size = 4000
+    training_event_size = 2000
+    test_event_size = 400
 
     train_datapath = "./Node_Edge_Classification/data/if-graph-train.h5"
+    test_datapath = "./Node_Edge_Classification/data/if-graph-test.h5"
 
-    voxel_data = ShowerVoxels(file_path = train_datapath)
-    example_voxel_data = voxel_data[0]
-    # print('List of keys in a data element',example_voxel_data.keys())
+    voxel_data_train = ShowerVoxels(file_path = train_datapath)
+    voxel_data_test  = ShowerVoxels(file_path = test_datapath)
+    example_voxel_data = voxel_data_train[0]
+    print("voxel data keys: ", example_voxel_data.keys())
+    print("voxel data size: ", len(voxel_data_train))
+
+
+    # * --- Generate global features from voxel data --- *
+    train_u_features = Net_MetaLayer.extractGlobalFeatures(voxel_data_train, training_event_size, batch_size)
+    test_u_features = Net_MetaLayer.extractGlobalFeatures(voxel_data_test, test_event_size, batch_size)
+    # u_generated = []
+    # for i in range(0, training_event_size):
+    #     voxel_event = torch.cat(voxel_data[i]['voxels'], dim=0)
+    #     _voxel_num = len(voxel_event)
+    #     _voxel_info_num = len(voxel_event[0])
+    #     _voxel_x_min = torch.min(voxel_event[:, 0]).item()
+    #     _voxel_x_max = torch.max(voxel_event[:, 0]).item()
+    #     _voxel_y_min = torch.min(voxel_event[:, 1]).item()
+    #     _voxel_y_max = torch.max(voxel_event[:, 1]).item()
+    #     _voxel_z_min = torch.min(voxel_event[:, 2]).item()
+    #     _voxel_z_max = torch.max(voxel_event[:, 2]).item()
+    #     u_generated.append([_voxel_num, _voxel_x_min, _voxel_x_max, _voxel_y_min, _voxel_y_max, _voxel_z_min, _voxel_z_max])
+    # u_generated_tensor = torch.tensor(u_generated, dtype=torch.float)
+    # u_generated_tensor_sliced_by_batch = torch.split(u_generated_tensor, batch_size)
+    print("sliced size: ", len(train_u_features))
+    # print an example of event #5 in batch #4
+    print("example of event #5 in batch #4: ", train_u_features[4][5])
+    # * ----------------------------------------------- *
 
     print(colored('Loading training data from: ', 'green'), train_datapath)
     train_data = ShowerFeatures(file_path = train_datapath)
@@ -52,7 +78,7 @@ if __name__ == '__main__':
             train_data_slice.append(train_data[i])
         print('Size of training data: ', len(train_data))
 
-    test_datapath = "./Node_Edge_Classification/data/if-graph-test.h5"
+
     print(colored('Loading test data from: ', 'green'), test_datapath)
     test_data = ShowerFeatures(file_path = test_datapath)
     test_data_slice = []
@@ -77,14 +103,14 @@ if __name__ == '__main__':
         train_loader = GraphDataLoader(
             train_data_slice,
             num_workers = 0,
-            shuffle     = True,
+            shuffle     = False,
             batch_size  = batch_size
         )
     else:
         train_loader = GraphDataLoader(
             train_data,
             num_workers = 0,
-            shuffle     = True,
+            shuffle     = False,
             batch_size  = batch_size
         )
 
@@ -148,7 +174,7 @@ if __name__ == '__main__':
                 edge_index = batch.edge_index,
                 edge_attr  = batch.edge_attr,
                 batch = batch.batch,
-                u = u_placeholder
+                u = train_u_features[batch_cnt - 1]
             )
             node_labels = batch.y.reshape(len(batch.y), 1).float()
             node_labels = node_labels.to(device)
@@ -180,13 +206,15 @@ if __name__ == '__main__':
         local_last_pred_edge_false = []
         local_last_pred_edge_label = []
         # ! Start testing
+        batch_test_cnt = 0
         for batch in test_loader:
+            batch_test_cnt += 1
             pred_y, pred_edge_label = model(
                 x = batch.x,
                 edge_index = batch.edge_index,
                 edge_attr  = batch.edge_attr,
                 batch = batch.batch,
-                u = u_placeholder
+                u = test_u_features[batch_test_cnt - 1]
             )
             
             pred_y = pred_y.detach().to('cpu').numpy()
@@ -285,14 +313,10 @@ if __name__ == '__main__':
     print('False edge value number: ', len(local_last_pred_edge_false))
     print('True edge value number: ', len(local_last_pred_edge_true))
 
-    print('Max false node value: ', np.max(local_last_pred_y_false))
-    print('Min false node value: ', np.min(local_last_pred_y_false))
-    print('Max true node value: ', np.max(local_last_pred_y_true))
-    print('Min true node value: ', np.min(local_last_pred_y_true))
-    print('Max false edge value: ', np.max(local_last_pred_edge_false))
-    print('Min false edge value: ', np.min(local_last_pred_edge_false))
-    print('Max true edge value: ', np.max(local_last_pred_edge_true))
-    print('Min true edge value: ', np.min(local_last_pred_edge_true))
+    print('FNode range: ', np.min(local_last_pred_y_false), np.max(local_last_pred_y_false))
+    print('TNode range: ', np.min(local_last_pred_y_true), np.max(local_last_pred_y_true))
+    print('FEdge range: ', np.min(local_last_pred_edge_false), np.max(local_last_pred_edge_false))
+    print('TEdge range: ', np.min(local_last_pred_edge_true), np.max(local_last_pred_edge_true))
     # normalized histogram
     plt.hist(local_last_pred_y_true,  bins=50, label='Node True',  range=(0,1), ec='#04B5BBEE', lw=2, histtype='step')
     plt.hist(local_last_pred_y_false, bins=50, label='Node False', range=(0,1), ec='#DF0345EE', lw=2, histtype='step')
