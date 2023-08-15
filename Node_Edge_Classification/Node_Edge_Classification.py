@@ -5,6 +5,7 @@ import h5py as h5
 import time
 import json
 import Net_Tri_EdgeCov
+import Net_Meta_Kazu
 import Net_MetaLayer
 from termcolor import colored
 from torch.utils.data import DataLoader
@@ -23,7 +24,7 @@ if __name__ == '__main__':
     # device = torch.device('mps')
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # set 10 cores for training
-    torch.set_num_threads(10)
+    # torch.set_num_threads(10)
 
 
     print(colored('Using device:', 'green'), device)
@@ -32,12 +33,13 @@ if __name__ == '__main__':
     _=np.random.seed(SEED)
     _=torch.manual_seed(SEED)
 
-    epoch_num   = 1
+    epoch_num   = 20
     batch_size  = 256
-    enable_save = False
-    # training_event_size = 110409
-    training_event_size = 1000
-    test_event_size = 400
+    enable_save = True
+    training_event_size = 110409
+    # training_event_size = 1000
+    # test_event_size = 4000
+    test_event_size = 10000
 
     train_datapath = "./Node_Edge_Classification/data/if-graph-train.h5"
     test_datapath = "./Node_Edge_Classification/data/if-graph-test.h5"
@@ -92,7 +94,7 @@ if __name__ == '__main__':
         train_loader = GraphDataLoader(
             train_data_slice,
             num_workers = 0,
-            shuffle     = False,
+            shuffle     = True,
             batch_size  = batch_size
         )
     else:
@@ -117,13 +119,14 @@ if __name__ == '__main__':
 
     # ! our code here
     print(colored('Creating model ...', 'cyan'))
-    model = Net_MetaLayer.SJN_Meta(train_data, device=device)
+    # model = Net_MetaLayer.SJN_Meta(train_data, device=device)
+    model = Net_Meta_Kazu.SJN_Meta_2(train_data, device=device)
     model.to(device)
 
     batch_placeholder = None
     u_placeholder     = None
 
-    print(colored('Testing model ...', 'green'))
+    # print(colored('Testing model ...', 'green'))
     # try_pred = model(
     #     x = train_data[0].x, 
     #     edge_index = train_data[0].edge_index, 
@@ -276,7 +279,7 @@ if __name__ == '__main__':
     ax2.plot(x_acc, test_acc_node, label='Node accuracy', color='#04B5BBEE', marker='o', linestyle='--')
     ax2.plot(x_acc, test_acc_edge, label='Edge accuracy', color='#DF0345EE', marker='o', linestyle='--')
     ax2.set_ylabel('Accuracy')
-    ax2.legend(loc='upper right')
+    ax2.legend(loc='center right')
     # set x axis range
     plt.xlim(0, len(loss_array_node))
 
