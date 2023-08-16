@@ -45,7 +45,7 @@ class NodeModel(torch.nn.Module):
     def __init__(self, edge_feature_size, node_feature_size, layer_size):
         super().__init__()
         _entry_size = node_feature_size + edge_feature_size
-        _second_entry_size = node_feature_size + layer_size + 7
+        _second_entry_size = node_feature_size + layer_size
         self.node_mlp_1 = torch.nn.Sequential(
             torch.nn.Linear(_entry_size, layer_size),
             torch.nn.BatchNorm1d(layer_size),
@@ -74,7 +74,7 @@ class NodeModel(torch.nn.Module):
         out = scatter(out, col, dim=0, dim_size=x.size(0),
                       reduce='mean')
         # out = torch.cat([x, batch, out], dim=1)
-        out = torch.cat([x, out, u[batch]], dim=1)
+        out = torch.cat([x, out], dim=1)
         out = self.node_mlp_2(out)
         out = self.linear(out)
         out = torch.nn.ReLU()(out)
@@ -197,7 +197,7 @@ def extractGlobalFeatures(voxel_data, input_size, batch_size):
     u_generated_tensor = torch.tensor(u_generated, dtype=torch.float)
     u_generated_tensor_sliced_by_batch = torch.split(u_generated_tensor, batch_size)
     print("sliced size: ", len(u_generated_tensor_sliced_by_batch))
-    for batch_info in u_generated_tensor_sliced_by_batch:
-        print(len(batch_info))
+    # for batch_info in u_generated_tensor_sliced_by_batch:
+    #     print(len(batch_info))
     # print an example of event #5 in batch #4
     return u_generated_tensor_sliced_by_batch

@@ -34,12 +34,12 @@ if __name__ == '__main__':
     _=torch.manual_seed(SEED)
 
     epoch_num   = 5
-    batch_size  = 256
+    batch_size  = 512
     enable_save = True
-    # training_event_size = 110409
-    training_event_size = 4000
-    test_event_size = 400
-    # test_event_size = 10000
+    training_event_size = 110409
+    # training_event_size = 4000
+    # test_event_size = 400
+    test_event_size = 10000
 
     train_datapath = "./Node_Edge_Classification/data/if-graph-train.h5"
     test_datapath = "./Node_Edge_Classification/data/if-graph-test.h5"
@@ -96,14 +96,14 @@ if __name__ == '__main__':
         train_loader = GraphDataLoader(
             train_data_slice,
             num_workers = 0,
-            shuffle     = False,
+            shuffle     = True,
             batch_size  = batch_size
         )
     else:
         train_loader = GraphDataLoader(
             train_data,
             num_workers = 0,
-            shuffle     = False,
+            shuffle     = True,
             batch_size  = batch_size
         )
 
@@ -144,7 +144,7 @@ if __name__ == '__main__':
     loss_func.to(device)
     loss_edge_ratio = 0.5
     loss_node_ratio = 1 - loss_edge_ratio
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.0025)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     # optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
     model.train()
 
@@ -180,7 +180,7 @@ if __name__ == '__main__':
             edge_labels = edge_labels.to(device)
             loss_edge   = loss_func(pred_edge_label, edge_labels)
             # loss_edge = Net_MetaLayer.DrielsmaLoss(pred_edge_label, edge_labels)
-            loss = loss_node + loss_edge
+            loss = loss_edge + loss_node
             # loss = loss_node_ratio * loss_node + loss_edge_ratio * loss_edge
             loss.backward()
             optimizer.step()
@@ -272,8 +272,8 @@ if __name__ == '__main__':
 
     plt.text(0.14, 0.825, 'SSI2023\nIF2 Group', fontsize=15, color='#00000022', ha='left', va='center', alpha=0.5, transform=figure_train.transFigure)
 
-    plt.plot(loss_array_node, label='Node loss', color='#04B5BBEE')
-    plt.plot(loss_array_edge, label='Edge loss', color='#DF0345EE')
+    plt.plot(loss_array_node, label='Node training loss', color='#04B5BBEE')
+    plt.plot(loss_array_edge, label='Edge training loss', color='#DF0345EE')
     figure_info = 'Training with ' + str(epoch_num) + ' epochs, ' + str(training_event_size) + ' events per epoch, ' + str(batch_size) + ' events per batch'
     plt.title(figure_info)
     plt.xlabel('Batch')
@@ -298,7 +298,7 @@ if __name__ == '__main__':
     plt.grid()
     
     if enable_save:
-        plt.savefig('./Node_Edge_Classification/pics/res' + str(local_time.tm_year) + str(local_time.tm_mon) + str(local_time.tm_mday) + str(local_time.tm_hour) + str(local_time.tm_min) + str(local_time.tm_sec) + '.png')
+        plt.savefig('./Node_Edge_Classification/pics/res' + str(local_time.tm_year) + str(local_time.tm_mon) + str(local_time.tm_mday) + str(local_time.tm_hour) + str(local_time.tm_min) + str(local_time.tm_sec) + '.png', transparent=True)
     else:
         plt.show()
 
@@ -320,10 +320,10 @@ if __name__ == '__main__':
     print('FEdge range: ', np.min(local_last_pred_edge_false), np.max(local_last_pred_edge_false))
     print('TEdge range: ', np.min(local_last_pred_edge_true), np.max(local_last_pred_edge_true))
     # normalized histogram
-    plt.hist(local_last_pred_y_true,  bins=50, label='Node True',  range=(0,1), ec='#04B5BBEE', lw=2, histtype='step')
-    plt.hist(local_last_pred_y_false, bins=50, label='Node False', range=(0,1), ec='#DF0345EE', lw=2, histtype='step')
-    plt.hist(local_last_pred_edge_true, bins=50, label='Edge True', range=(0,1), ec='#1C43C3EE', lw=2, histtype='step')
-    plt.hist(local_last_pred_edge_false, bins=50, label='Edge False', range=(0,1), ec='#BB8104EE', lw=2, histtype='step')
+    plt.hist(local_last_pred_y_true,  bins=50, label='Primary Node',  range=(0,1), ec='#04B5BBEE', lw=2, histtype='step')
+    plt.hist(local_last_pred_y_false, bins=50, label='Secondary Node', range=(0,1), ec='#DF0345EE', lw=2, histtype='step')
+    plt.hist(local_last_pred_edge_true, bins=50, label='Valid Edge', range=(0,1), ec='#1C43C3EE', lw=2, histtype='step')
+    plt.hist(local_last_pred_edge_false, bins=50, label='Invalid Edge', range=(0,1), ec='#BB8104EE', lw=2, histtype='step')
 
     # log y axis
     plt.yscale('log')
@@ -333,7 +333,7 @@ if __name__ == '__main__':
     plt.legend(loc='upper center')
     plt.grid()
     if enable_save:
-        plt.savefig('./Node_Edge_Classification/pics/node_hist' + str(local_time.tm_year) + str(local_time.tm_mon) + str(local_time.tm_mday) + str(local_time.tm_hour) + str(local_time.tm_min) + str(local_time.tm_sec) + '.png')
+        plt.savefig('./Node_Edge_Classification/pics/node_hist' + str(local_time.tm_year) + str(local_time.tm_mon) + str(local_time.tm_mday) + str(local_time.tm_hour) + str(local_time.tm_min) + str(local_time.tm_sec) + '.png', transparent=True)
     else:
         plt.show()
 
