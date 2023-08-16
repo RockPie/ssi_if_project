@@ -33,13 +33,13 @@ if __name__ == '__main__':
     _=np.random.seed(SEED)
     _=torch.manual_seed(SEED)
 
-    epoch_num   = 20
+    epoch_num   = 5
     batch_size  = 256
     enable_save = True
-    training_event_size = 110409
-    # training_event_size = 1000
-    # test_event_size = 4000
-    test_event_size = 10000
+    # training_event_size = 110409
+    training_event_size = 4000
+    test_event_size = 400
+    # test_event_size = 10000
 
     train_datapath = "./Node_Edge_Classification/data/if-graph-train.h5"
     test_datapath = "./Node_Edge_Classification/data/if-graph-test.h5"
@@ -50,12 +50,14 @@ if __name__ == '__main__':
     print("Voxel data keys: ", example_voxel_data.keys())
     print("Voxel data size: ", len(voxel_data_train))
 
-
     # * --- Generate global features from voxel data --- *
     print(colored('Generating training global features from voxel data ...', 'green'))
-    train_u_features = Net_MetaLayer.extractGlobalFeatures(voxel_data_train, training_event_size, batch_size)
+    # train_u_features = Net_MetaLayer.extractGlobalFeatures(voxel_data_train, training_event_size, batch_size)
+    # save as json file
     print(colored('Generating test global features from voxel data ...', 'green'))
-    test_u_features = Net_MetaLayer.extractGlobalFeatures(voxel_data_test, test_event_size, batch_size)
+    # test_u_features = Net_MetaLayer.extractGlobalFeatures(voxel_data_test, test_event_size, batch_size)
+    # save as json file
+
 
     # * ----------------------------------------------- *
 
@@ -94,7 +96,7 @@ if __name__ == '__main__':
         train_loader = GraphDataLoader(
             train_data_slice,
             num_workers = 0,
-            shuffle     = True,
+            shuffle     = False,
             batch_size  = batch_size
         )
     else:
@@ -166,7 +168,8 @@ if __name__ == '__main__':
                 edge_index = batch.edge_index,
                 edge_attr  = batch.edge_attr,
                 batch = batch.batch,
-                u = train_u_features[batch_cnt - 1]
+                # u = train_u_features[batch_cnt - 1]
+                u = None
             )
             node_labels = batch.y.reshape(len(batch.y), 1).float()
             node_labels = node_labels.to(device)
@@ -206,7 +209,8 @@ if __name__ == '__main__':
                 edge_index = batch.edge_index,
                 edge_attr  = batch.edge_attr,
                 batch = batch.batch,
-                u = test_u_features[batch_test_cnt - 1]
+                # u = test_u_features[batch_test_cnt - 1]
+                u = None
             )
             
             pred_y = pred_y.detach().to('cpu').numpy()
@@ -259,9 +263,15 @@ if __name__ == '__main__':
     
     # * Create loss figure
     if enable_save:
-        figure_train = plt.figure(figsize=(10, 5), dpi=1000)
+        figure_train = plt.figure(figsize=(9, 6), dpi=1000)
     else:
-        figure_train = plt.figure(figsize=(10, 5))
+        figure_train = plt.figure(figsize=(9, 6))
+
+    for i in range(epoch_num):
+        plt.axvline(x=i*train_batch_num, color='#00000022', linestyle='--')
+
+    plt.text(0.14, 0.825, 'SSI2023\nIF2 Group', fontsize=15, color='#00000022', ha='left', va='center', alpha=0.5, transform=figure_train.transFigure)
+
     plt.plot(loss_array_node, label='Node loss', color='#04B5BBEE')
     plt.plot(loss_array_edge, label='Edge loss', color='#DF0345EE')
     figure_info = 'Training with ' + str(epoch_num) + ' epochs, ' + str(training_event_size) + ' events per epoch, ' + str(batch_size) + ' events per batch'
@@ -279,12 +289,12 @@ if __name__ == '__main__':
     ax2.plot(x_acc, test_acc_node, label='Node accuracy', color='#04B5BBEE', marker='o', linestyle='--')
     ax2.plot(x_acc, test_acc_edge, label='Edge accuracy', color='#DF0345EE', marker='o', linestyle='--')
     ax2.set_ylabel('Accuracy')
-    ax2.legend(loc='center right')
+    ax2.legend(loc='upper right')
     # set x axis range
     plt.xlim(0, len(loss_array_node))
 
-    ax1.set_ylim(0, 0.8)
-    ax2.set_ylim(0.8, 1)
+    ax1.set_ylim(0, 0.5)
+    ax2.set_ylim(0.9, 1)
     plt.grid()
     
     if enable_save:
@@ -297,6 +307,8 @@ if __name__ == '__main__':
         figure_node_hist = plt.figure(figsize=(8, 8), dpi=600)
     else:
         figure_node_hist = plt.figure(figsize=(8, 8))
+
+    plt.text(0.07, 0.67, 'SSI2023\nIF2 Group', fontsize=15, color='#00000022', ha='left', va='center', alpha=0.5, transform=figure_train.transFigure)
 
     print('False node value number: ', len(local_last_pred_y_false))
     print('True node value number: ', len(local_last_pred_y_true))

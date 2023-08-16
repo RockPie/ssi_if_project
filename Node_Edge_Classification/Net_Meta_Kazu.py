@@ -45,7 +45,7 @@ class NodeModel(torch.nn.Module):
     def __init__(self, edge_feature_size, node_feature_size, layer_size, leakiness=0.1):
         super().__init__()
         _entry_size = node_feature_size + edge_feature_size
-        _second_entry_size = node_feature_size + layer_size
+        _second_entry_size = node_feature_size + layer_size 
         self.node_mlp_1 = torch.nn.Sequential(
             torch.nn.BatchNorm1d(_entry_size),
             torch.nn.Linear(_entry_size, layer_size),
@@ -89,8 +89,23 @@ class NodeModel(torch.nn.Module):
         return out
 
 class GlobalModel(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, leakiness = 0.1):
         super().__init__()
+        global_feature_size = 7
+        entry_size = 23
+        layer_node_size = 128
+        self.global_mlp = torch.nn.Sequential(
+            torch.nn.BatchNorm1d(entry_size),
+            torch.nn.Linear(entry_size, layer_node_size),
+            torch.nn.LeakyReLU(leakiness),
+            torch.nn.BatchNorm1d(layer_node_size),
+
+            torch.nn.Linear(layer_node_size, layer_node_size),
+            torch.nn.LeakyReLU(leakiness),
+            torch.nn.BatchNorm1d(layer_node_size),
+            
+            torch.nn.Linear(layer_node_size, global_feature_size)
+        )
 
     def forward(self, x, edge_index, edge_attr, u, batch):
         # x: [N, F_x], where N is the number of nodes.
@@ -98,6 +113,11 @@ class GlobalModel(torch.nn.Module):
         # edge_attr: [E, F_e]
         # u: [B, F_u]
         # batch: [N] with max entry B - 1.
+        # out = torch.cat([
+        #     u,
+        #     scatter(x, batch, dim=0, reduce='mean'),
+        # ], dim=1)
+        # return self.global_mlp(out)
         return u
 
 class SJN_Meta_2(torch.nn.Module):
@@ -106,19 +126,20 @@ class SJN_Meta_2(torch.nn.Module):
         self.device = device
         node_feature_size = 16
         edge_feature_size = 19
+        global_leakiness = 0.1
 
         self.metalayer1 = MetaLayer(
-            EdgeModel(edge_feature_size, node_feature_size, 64), 
-            NodeModel(edge_feature_size, node_feature_size, 64), 
-            GlobalModel())
+            EdgeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            NodeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            GlobalModel(global_leakiness))
         self.metalayer2 = MetaLayer(
-            EdgeModel(edge_feature_size, node_feature_size, 256), 
-            NodeModel(edge_feature_size, node_feature_size, 256), 
-            GlobalModel())
+            EdgeModel(edge_feature_size, node_feature_size, 256, global_leakiness), 
+            NodeModel(edge_feature_size, node_feature_size, 256, global_leakiness), 
+            GlobalModel(global_leakiness))
         self.metalayer3 = MetaLayer(
-            EdgeModel(edge_feature_size, node_feature_size, 128), 
-            NodeModel(edge_feature_size, node_feature_size, 128), 
-            GlobalModel())
+            EdgeModel(edge_feature_size, node_feature_size, 128, global_leakiness), 
+            NodeModel(edge_feature_size, node_feature_size, 128, global_leakiness), 
+            GlobalModel(global_leakiness))
 
         self.x_linear = torch.nn.Linear(16, 1)
 
@@ -129,8 +150,9 @@ class SJN_Meta_2(torch.nn.Module):
         x           = x.to(self.device)
         edge_index  = edge_index.to(self.device)
         edge_attr   = edge_attr.to(self.device)
-        u           = u.to(self.device)
-        batch       = batch.to(self.device)
+        batch = None
+        # u           = u.to(self.device)
+        # batch       = batch.to(self.device)
         # print("x datatype: ", x.dtype)
         # print("edge_index datatype: ", edge_index.dtype)
         # print("edge_attr datatype: ", edge_attr.dtype)
@@ -142,9 +164,11 @@ class SJN_Meta_2(torch.nn.Module):
 
         x = self.x_linear(x)
         y_pred = torch.nn.Sigmoid()(x)
+        # y_pred = torch.nn.Softmax(dim=1)(x)[1]
 
         edge_attr = self.edge_linear(edge_attr)
         edge_label_pred = torch.nn.Sigmoid()(edge_attr)
+        # edge_label_pred = torch.nn.Softmax(dim=1)(edge_attr)[1]
 
         return y_pred, edge_label_pred
     
@@ -169,8 +193,8 @@ def extractGlobalFeatures(voxel_data, input_size, batch_size):
         u_generated.append([_voxel_num, _voxel_x_min, _voxel_x_max, _voxel_y_min, _voxel_y_max, _voxel_z_min, _voxel_z_max])
     u_generated_tensor = torch.tensor(u_generated, dtype=torch.float)
     u_generated_tensor_sliced_by_batch = torch.split(u_generated_tensor, batch_size)
-    print("sliced size: ", len(u_generated_tensor_sliced_by_batch))
-    for batch_info in u_generated_tensor_sliced_by_batch:
-        print(len(batch_info))
+    # print("sliced size: ", len(u_generated_tensor_sliced_by_batch))
+    # for batch_info in u_generated_tensor_sliced_by_batch:
+    #     print(len(batch_info))
     # print an example of event #5 in batch #4
     return u_generated_tensor_sliced_by_batch
