@@ -33,13 +33,13 @@ if __name__ == '__main__':
     _=np.random.seed(SEED)
     _=torch.manual_seed(SEED)
 
-    epoch_num   = 5
-    batch_size  = 512
+    epoch_num   = 10
+    batch_size  = 256
     enable_save = True
     training_event_size = 110409
-    # training_event_size = 4000
-    # test_event_size = 400
-    test_event_size = 10000
+    # training_event_size = 10000
+    # test_event_size = 4000
+    test_event_size = 16000
 
     train_datapath = "./Node_Edge_Classification/data/if-graph-train.h5"
     test_datapath = "./Node_Edge_Classification/data/if-graph-test.h5"
@@ -121,8 +121,8 @@ if __name__ == '__main__':
 
     # ! our code here
     print(colored('Creating model ...', 'cyan'))
-    # model = Net_MetaLayer.SJN_Meta(train_data, device=device)
-    model = Net_Meta_Kazu.SJN_Meta_2(train_data, device=device)
+    model = Net_MetaLayer.SJN_Meta(train_data, device=device)
+    # model = Net_Meta_Kazu.SJN_Meta_2(train_data, device=device)
     model.to(device)
 
     batch_placeholder = None
@@ -142,9 +142,7 @@ if __name__ == '__main__':
     loss_func = torch.nn.BCELoss()
     # loss_func =  Net_MetaLayer.DrielsmaLoss()
     loss_func.to(device)
-    loss_edge_ratio = 0.5
-    loss_node_ratio = 1 - loss_edge_ratio
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.0025)
     # optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
     model.train()
 
@@ -200,6 +198,7 @@ if __name__ == '__main__':
         local_last_pred_edge_true = []
         local_last_pred_edge_false = []
         local_last_pred_edge_label = []
+
         # ! Start testing
         batch_test_cnt = 0
         for batch in test_loader:
@@ -261,6 +260,7 @@ if __name__ == '__main__':
         with open(json_name, 'w') as f:
             json.dump(loss_dict, f)
     
+    print(colored('Drawing training loss...', 'green'))
     # * Create loss figure
     if enable_save:
         figure_train = plt.figure(figsize=(9, 6), dpi=1000)
@@ -302,6 +302,7 @@ if __name__ == '__main__':
     else:
         plt.show()
 
+    print(colored('Drawing score distribution...', 'green'))
     # * Create node hist figure
     if enable_save:
         figure_node_hist = plt.figure(figsize=(8, 8), dpi=600)
@@ -310,15 +311,15 @@ if __name__ == '__main__':
 
     plt.text(0.07, 0.67, 'SSI2023\nIF2 Group', fontsize=15, color='#00000022', ha='left', va='center', alpha=0.5, transform=figure_train.transFigure)
 
-    print('False node value number: ', len(local_last_pred_y_false))
-    print('True node value number: ', len(local_last_pred_y_true))
-    print('False edge value number: ', len(local_last_pred_edge_false))
-    print('True edge value number: ', len(local_last_pred_edge_true))
+    # print('False node value number: ', len(local_last_pred_y_false))
+    # print('True node value number: ', len(local_last_pred_y_true))
+    # print('False edge value number: ', len(local_last_pred_edge_false))
+    # print('True edge value number: ', len(local_last_pred_edge_true))
 
-    print('FNode range: ', np.min(local_last_pred_y_false), np.max(local_last_pred_y_false))
-    print('TNode range: ', np.min(local_last_pred_y_true), np.max(local_last_pred_y_true))
-    print('FEdge range: ', np.min(local_last_pred_edge_false), np.max(local_last_pred_edge_false))
-    print('TEdge range: ', np.min(local_last_pred_edge_true), np.max(local_last_pred_edge_true))
+    # print('FNode range: ', np.min(local_last_pred_y_false), np.max(local_last_pred_y_false))
+    # print('TNode range: ', np.min(local_last_pred_y_true), np.max(local_last_pred_y_true))
+    # print('FEdge range: ', np.min(local_last_pred_edge_false), np.max(local_last_pred_edge_false))
+    # print('TEdge range: ', np.min(local_last_pred_edge_true), np.max(local_last_pred_edge_true))
     # normalized histogram
     plt.hist(local_last_pred_y_true,  bins=50, label='Primary Node',  range=(0,1), ec='#04B5BBEE', lw=2, histtype='step')
     plt.hist(local_last_pred_y_false, bins=50, label='Secondary Node', range=(0,1), ec='#DF0345EE', lw=2, histtype='step')
@@ -336,6 +337,51 @@ if __name__ == '__main__':
         plt.savefig('./Node_Edge_Classification/pics/node_hist' + str(local_time.tm_year) + str(local_time.tm_mon) + str(local_time.tm_mday) + str(local_time.tm_hour) + str(local_time.tm_min) + str(local_time.tm_sec) + '.png', transparent=True)
     else:
         plt.show()
+
+    print(colored('Drawing ROC graph...', 'green'))
+    # * Create ROC graph
+    if enable_save:
+        figure_node_roc = plt.figure(figsize=(7, 7), dpi=600)
+    else:
+        figure_node_roc = plt.figure(figsize=(7, 7))
+
+    plt.text(0.07, 0.11, 'SSI2023\nIF2 Group', fontsize=15, color='#00000022', ha='left', va='center', alpha=0.5, transform=figure_train.transFigure)
+
+    threshold = np.arange(0, 1, 0.01)
+    tpr = np.zeros(len(threshold))
+    fpr = np.zeros(len(threshold))
+    for i in range(len(threshold)):
+        tp = np.sum(local_last_pred_y_true > threshold[i])
+        fp = np.sum(local_last_pred_y_false > threshold[i])
+        tn = np.sum(local_last_pred_y_false < threshold[i])
+        fn = np.sum(local_last_pred_y_true < threshold[i])
+        tpr[i] = tp / (tp + fn)
+        fpr[i] = fp / (tn + fp)
+    plt.plot(fpr, tpr, label='Node ROC', color='#04B5BBEE', linewidth=3)
+
+    tpr = np.zeros(len(threshold))
+    fpr = np.zeros(len(threshold))
+    for i in range(len(threshold)):
+        tp = np.sum(local_last_pred_edge_true > threshold[i])
+        fp = np.sum(local_last_pred_edge_false > threshold[i])
+        tn = np.sum(local_last_pred_edge_false < threshold[i])
+        fn = np.sum(local_last_pred_edge_true < threshold[i])
+        tpr[i] = tp / (tp + fn)
+        fpr[i] = fp / (tn + fp)
+    plt.plot(fpr, tpr, label='Edge ROC', color='#DF0345EE', linewidth=3)
+
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.xlim(0, 0.3)
+    plt.ylim(0.7, 1)
+
+    plt.legend(loc='lower right')
+    plt.grid()
+    if enable_save:
+        plt.savefig('./Node_Edge_Classification/pics/roc' + str(local_time.tm_year) + str(local_time.tm_mon) + str(local_time.tm_mday) + str(local_time.tm_hour) + str(local_time.tm_min) + str(local_time.tm_sec) + '.png', transparent=True)
+    else:
+        plt.show()
+    
 
     
 

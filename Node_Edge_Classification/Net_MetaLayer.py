@@ -10,12 +10,14 @@ class EdgeModel(torch.nn.Module):
         in_size = edge_feature_size + 2*node_feature_size
 
         net_layers.append(torch.nn.Linear(in_size, layer_size))
-        net_layers.append(torch.nn.BatchNorm1d(layer_size))
         net_layers.append(torch.nn.ReLU())
+        net_layers.append(torch.nn.BatchNorm1d(layer_size))
+        
 
         net_layers.append(torch.nn.Linear(layer_size, layer_size))
-        net_layers.append(torch.nn.BatchNorm1d(layer_size))
         net_layers.append(torch.nn.ReLU())
+        net_layers.append(torch.nn.BatchNorm1d(layer_size))
+        
 
         self.model = torch.nn.Sequential(*net_layers)
 
@@ -48,13 +50,14 @@ class NodeModel(torch.nn.Module):
         _second_entry_size = node_feature_size + layer_size
         self.node_mlp_1 = torch.nn.Sequential(
             torch.nn.Linear(_entry_size, layer_size),
-            torch.nn.BatchNorm1d(layer_size),
-            torch.nn.ReLU()
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(layer_size)
+            
         )
         self.node_mlp_2 = torch.nn.Sequential(
             torch.nn.Linear(_second_entry_size, _second_entry_size),
-            torch.nn.BatchNorm1d(_second_entry_size),
-            torch.nn.ReLU()
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(_second_entry_size)
         )
 
         self.linear = torch.nn.Linear(_second_entry_size, node_feature_size)
@@ -100,12 +103,12 @@ class GlobalModel(torch.nn.Module):
         # edge_attr: [E, F_e]
         # u: [B, F_u]
         # batch: [N] with max entry B - 1.
-        out = torch.cat([
-            u,
-            scatter(x, batch, dim=0, reduce='mean'),
-        ], dim=1)
-        out = self.global_mlp(out)
-        return out
+        # out = torch.cat([
+        #     u,
+        #     scatter(x, batch, dim=0, reduce='mean'),
+        # ], dim=1)
+        # out = self.global_mlp(out)
+        return u
 
 class SJN_Meta(torch.nn.Module):
     def __init__(self, dataset, device):
@@ -136,7 +139,8 @@ class SJN_Meta(torch.nn.Module):
         x           = x.to(self.device)
         edge_index  = edge_index.to(self.device)
         edge_attr   = edge_attr.to(self.device)
-        u           = u.to(self.device)
+        u = None
+        # u           = u.to(self.device)
         batch       = batch.to(self.device)
         # print("x datatype: ", x.dtype)
         # print("edge_index datatype: ", edge_index.dtype)

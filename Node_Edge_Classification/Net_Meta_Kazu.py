@@ -23,8 +23,6 @@ class EdgeModel(torch.nn.Module):
             torch.nn.Linear(layer_size,   edge_feature_size)
         )
 
-        self.linear = torch.nn.Linear(layer_size, edge_feature_size)
-
     def forward(self, src, dst, edge_attr, u, batch):
         # src, dst: [E, F_x], where E is the number of edges.
         # edge_attr: [E, F_e]
@@ -36,8 +34,8 @@ class EdgeModel(torch.nn.Module):
         # print("batch size: ", batch.size())
         # make batch two dimension
         # batch = batch.unsqueeze(1)
-        # out = torch.cat([src, dst, edge_attr, batch], 1)
         out = torch.cat([src, dst, edge_attr], dim=1)
+        # out = torch.cat([src, dst, edge_attr, u[batch]], dim=1)
         out = self.edge_mlp(out)
         return out
 
@@ -45,7 +43,7 @@ class NodeModel(torch.nn.Module):
     def __init__(self, edge_feature_size, node_feature_size, layer_size, leakiness=0.1):
         super().__init__()
         _entry_size = node_feature_size + edge_feature_size
-        _second_entry_size = node_feature_size + layer_size 
+        _second_entry_size = node_feature_size + layer_size
         self.node_mlp_1 = torch.nn.Sequential(
             torch.nn.BatchNorm1d(_entry_size),
             torch.nn.Linear(_entry_size, layer_size),
@@ -84,6 +82,58 @@ class NodeModel(torch.nn.Module):
         out = scatter(out, col, dim=0, dim_size=x.size(0))
         # out = torch.cat([x, batch, out], dim=1)
         out = torch.cat([x, out], dim=1)
+        # out = torch.cat([x, out, u[batch]], dim=1)
+        out = self.node_mlp_2(out)
+        # out = F.dropout(out, training=self.training)
+        return out
+    
+class NodeModel_Enhanced(torch.nn.Module):
+    def __init__(self, edge_feature_size, node_feature_size, layer_size, leakiness=0.1):
+        super().__init__()
+        _entry_size = node_feature_size + edge_feature_size
+        _second_entry_size = node_feature_size + layer_size + 7
+        self.node_mlp_1 = torch.nn.Sequential(
+            torch.nn.BatchNorm1d(_entry_size),
+            torch.nn.Linear(_entry_size, layer_size),
+            torch.nn.LeakyReLU(leakiness),
+            torch.nn.BatchNorm1d(layer_size),
+
+            torch.nn.Linear(layer_size, layer_size),
+            torch.nn.LeakyReLU(leakiness),
+            torch.nn.BatchNorm1d(layer_size),
+            
+            torch.nn.Linear(layer_size, layer_size)
+        )
+        self.node_mlp_2 = torch.nn.Sequential(
+            torch.nn.BatchNorm1d(_second_entry_size),
+            torch.nn.Linear(_second_entry_size, _second_entry_size),
+            torch.nn.LeakyReLU(leakiness),
+            torch.nn.BatchNorm1d(_second_entry_size),
+
+            torch.nn.Linear(_second_entry_size, _second_entry_size),
+            torch.nn.LeakyReLU(leakiness),
+            torch.nn.BatchNorm1d(_second_entry_size),
+
+            torch.nn.Linear(_second_entry_size, _second_entry_size),
+            torch.nn.LeakyReLU(leakiness),
+            torch.nn.BatchNorm1d(_second_entry_size),
+            
+            torch.nn.Linear(_second_entry_size, node_feature_size)
+        )
+    def forward(self, x, edge_index, edge_attr, u, batch):
+        # x: [N, F_x], where N is the number of nodes.
+        # edge_index: [2, E] with max entry N - 1.
+        # edge_attr: [E, F_e]
+        # u: [B, F_u]
+        # batch: [N] with max entry B - 1.
+        # print("node number: ", x.size(0))
+        # print("edge number: ", edge_index.size(1))
+        row, col = edge_index
+        out = torch.cat([x[row], edge_attr], dim=1)
+        out = self.node_mlp_1(out)
+        out = scatter(out, col, dim=0, dim_size=x.size(0))
+        # out = torch.cat([x, out], dim=1)
+        out = torch.cat([x, out, u[batch]], dim=1)
         out = self.node_mlp_2(out)
         # out = F.dropout(out, training=self.training)
         return out
@@ -133,12 +183,48 @@ class SJN_Meta_2(torch.nn.Module):
             NodeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
             GlobalModel(global_leakiness))
         self.metalayer2 = MetaLayer(
-            EdgeModel(edge_feature_size, node_feature_size, 256, global_leakiness), 
-            NodeModel(edge_feature_size, node_feature_size, 256, global_leakiness), 
+            EdgeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            NodeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
             GlobalModel(global_leakiness))
         self.metalayer3 = MetaLayer(
-            EdgeModel(edge_feature_size, node_feature_size, 128, global_leakiness), 
-            NodeModel(edge_feature_size, node_feature_size, 128, global_leakiness), 
+            EdgeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            NodeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            GlobalModel(global_leakiness))
+        self.metalayer4 = MetaLayer(
+            EdgeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            NodeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            GlobalModel(global_leakiness))
+        self.metalayer5 = MetaLayer(
+            EdgeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            NodeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            GlobalModel(global_leakiness))
+        self.metalayer6 = MetaLayer(
+            EdgeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            NodeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            GlobalModel(global_leakiness))
+        self.metalayer7 = MetaLayer(
+            EdgeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            NodeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            GlobalModel(global_leakiness))
+        self.metalayer8 = MetaLayer(
+            EdgeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            NodeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            GlobalModel(global_leakiness))
+        self.metalayer9 = MetaLayer(
+            EdgeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            NodeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            GlobalModel(global_leakiness))
+        self.metalayer10 = MetaLayer(
+            EdgeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            NodeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            GlobalModel(global_leakiness))
+        self.metalayer11 = MetaLayer(
+            EdgeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            NodeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            GlobalModel(global_leakiness))
+        self.metalayer12 = MetaLayer(
+            EdgeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
+            NodeModel(edge_feature_size, node_feature_size, 64, global_leakiness), 
             GlobalModel(global_leakiness))
 
         self.x_linear = torch.nn.Linear(16, 1)
@@ -150,17 +236,19 @@ class SJN_Meta_2(torch.nn.Module):
         x           = x.to(self.device)
         edge_index  = edge_index.to(self.device)
         edge_attr   = edge_attr.to(self.device)
-        batch = None
+        # batch = None
+        u = None
         # u           = u.to(self.device)
-        # batch       = batch.to(self.device)
-        # print("x datatype: ", x.dtype)
-        # print("edge_index datatype: ", edge_index.dtype)
-        # print("edge_attr datatype: ", edge_attr.dtype)
-        # print("batch datatype: ", batch.dtype)
+        batch       = batch.to(self.device)
 
         x, edge_attr, u = self.metalayer1(x, edge_index, edge_attr, u, batch)
         x, edge_attr, u = self.metalayer2(x, edge_index, edge_attr, u, batch)
         x, edge_attr, u = self.metalayer3(x, edge_index, edge_attr, u, batch)
+
+
+        # for i in range(12):
+        #     x, edge_attr, u = self.metalayer_array[i](x, edge_index, edge_attr, u, batch)
+
 
         x = self.x_linear(x)
         y_pred = torch.nn.Sigmoid()(x)
